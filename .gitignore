@@ -1,0 +1,8 @@
+# ignore ALL .csv files (raw data + cleaned data 1 GB [too larch for Git uplaod])
+*.csv
+
+# ignore ALL files in directory named .ipynb_checkpoints
+.ipynb_checkpoints/
+
+# ignore secret mapbox token
+mapbox_token_secret.json
