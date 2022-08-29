@@ -4,5 +4,6 @@
 # ignore ALL files in directory named .ipynb_checkpoints
 .ipynb_checkpoints/
 
-# ignore secret mapbox token
+# ignore personal files
 mapbox_token_secret.json
+Capstone Project.code-workspace
