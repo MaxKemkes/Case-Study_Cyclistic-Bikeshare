@@ -32,8 +32,16 @@ nbclient.exceptions.CellTimeoutError: A cell timed out while it was being execut
 The message was: Cell execution timed out.
 Here is a preview of the cell contents:
 -------------------
-['# CALCULATING TIME RELATED DATA', "df_cleaned['hour_of_ride'] = df_cleaned['started_at'].dt.hour", "df_cleaned['day_of_ride'] = pd.Categorical(df_cleaned['started_at'].dt.day_name(),", "        categories= ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])", "df_cleaned['month_of_ride'] = pd.Categorical(df_cleaned['started_at'].dt.month_name(),"]
-...
-["df_cleaned['year_of_ride'] = df_cleaned['started_at'].dt.year", '', '# CALCULATING RIDE TIMES', "df_cleaned['length_of_ride_tdelta'] = df_cleaned['ended_at'] - df_cleaned['started_at']", "df_cleaned['length_of_ride_s'] = df_cleaned['length_of_ride_tdelta'].apply(lambda x: datetime.timedelta.total_seconds(x))"]
+# IMPORTING DATA
+csv_list = glob('*-tripdata.csv', root_dir="./../raw_data/")
+
+dfs = [
+    pd.read_csv(f'./../raw_data/{filename}', index_col = None, parse_dates = ['started_at','ended_at'],
+                dtype={'rideable_type': 'category', 'casual_member': 'category'})
+    for filename in csv_list
+]
+
+df = pd.concat(dfs)
+
 -------------------
 

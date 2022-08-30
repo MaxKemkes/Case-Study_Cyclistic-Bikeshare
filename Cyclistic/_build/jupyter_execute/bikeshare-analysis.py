@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# In[1]:
+
+
+get_ipython().run_cell_magic('HTML', '', '<script src="require.js"></script>\n')
+
+
 # # Case Study: How Does a Bike-Share Navigate Speedy Success?
 
 # ## Guiding Questions of Analysis?
@@ -13,7 +19,7 @@
 # 
 # 
 
-# In[1]:
+# In[2]:
 
 
 import numpy as np
@@ -41,7 +47,7 @@ locale.setlocale(locale.LC_TIME, 'en_US')
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[2]:
+# In[3]:
 
 
 # IMPORTING DATA
