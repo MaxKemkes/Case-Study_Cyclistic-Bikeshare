@@ -76,12 +76,65 @@ md(f"""Rows drecreased by **{locale.format_string('%d', df.shape[0]-df_cleaned.s
    from {locale.format_string('%d', df.shape[0], grouping = True)} to {locale.format_string('%d', df_cleaned.shape[0], grouping=True)}.""")
 
 
+# In[4]:
+
+
+md(f"""Check for matching observations (start and end stations should have the same amount of ID's and names)
+
+| Station Type | # of ID's | # of names | DIFF |
+| --- | --- | --- | --- |
+| Start | {df_cleaned['start_station_id'].nunique()} | {df_cleaned['start_station_name'].nunique()} | {abs(df_cleaned['start_station_id'].nunique() - df_cleaned['start_station_name'].nunique())} |
+| End | {df_cleaned['end_station_id'].nunique()} | {df_cleaned['end_station_name'].nunique()} | {abs(df_cleaned['end_station_id'].nunique() - df_cleaned['end_station_name'].nunique())} |
+""")
+
+
+# Since there is a clear difference in the numnber of names to stations there seems to be some kind of irregulatory, probably typos. Sincec we do not have an easy way to filter them out lets create a station dataframe with 1:1 id to name and only take the names with the largest number of appearances. afterwards we will replace the names in the cleaned dataframe with the stations that we found to be the most common names.
+
+# In[5]:
+
+
+# create single df for stations (no difference for start or end)
+station_concat = pd.concat([df_cleaned[['start_station_id','start_station_name']]\
+            .rename(columns={'start_station_id':'station_id', 'start_station_name': 'station_name'}),
+            df_cleaned[['end_station_id','end_station_name']]\
+            .rename(columns={'end_station_id':'station_id', 'end_station_name': 'station_name'})])
+
+# groupby stations and count station name
+stations_df = station_concat.groupby(['station_id','station_name'])['station_name'].count().rename('count')
+
+# use only speeling with occures most often
+station_list = []
+for idx, temp_df in stations_df.groupby(level=0):
+    station_list.append(temp_df.nlargest(1))
+
+stations_df_cleaned = pd.concat(station_list).to_frame()
+
+stations_df_cleaned = stations_df_cleaned.reset_index(1).drop(columns='count')
+stations_df_cleaned
+
+stations_dict = {}
+for idx, value in stations_df_cleaned.groupby(level=0):
+    stations_dict.update({idx: value['station_name'].item()})
+
+
+# In[6]:
+
+
+# change names in df_cleaned
+
+df_cleaned['start_station_name'] = df_cleaned['start_station_id'].apply(lambda x:
+                                    stations_dict.get(x))
+
+df_cleaned['end_station_name'] = df_cleaned['end_station_id'].apply(lambda x:
+                                    stations_dict.get(x))
+
+
 # ## Data Preparation
 # 
 # * Adding formatted columns (hour of ride, weekday, month) to further slice data
 # * Calculating distance travlled (point-to-point)
 
-# In[4]:
+# In[7]:
 
 
 # CALCULATING TIME RELATED DATA
@@ -114,7 +167,7 @@ df_cleaned['length_of_ride_s'] = df_cleaned['length_of_ride_tdelta'].apply(lambd
 # 
 # Source: __[movable-type.co.uk](https://www.movable-type.co.uk/scripts/latlong.html)__
 
-# In[5]:
+# In[8]:
 
 
 # DISTANCE Formula
@@ -147,7 +200,7 @@ def calc_sphere_dist(start_lat:float, start_lng:float, end_lat:float, end_lng:fl
     return d
 
 
-# In[6]:
+# In[9]:
 
 
 # CALCULATE RIDE DISTANCE (POINT-TO-POINT)
@@ -161,7 +214,7 @@ df_cleaned['dist_ride'] = df_cleaned.apply(lambda x:
 # * Average, Median, Max and Min for the ride time as well as the ride distance
 # * most commonly observed time of day, weekday and month of ride
 
-# In[7]:
+# In[10]:
 
 
 # FUNCTION TO TURN TIMEDELTA INTO A TIME STRING (NOT BUILT IN FUNCTION)
@@ -194,7 +247,7 @@ def strfdelta(tdelta:datetime.timedelta, fmt:str="%H:%M:%S"):
 
 # ### High Level Stats - 1
 
-# In[8]:
+# In[11]:
 
 
 # CALCULATE DESCRIPTIVE STATISTICS
@@ -221,7 +274,7 @@ df_sorted = df_cleaned.sort_values(by=['dist_ride'], ascending=False)
 count_rides = df_cleaned['ride_id'].count()
 
 
-# In[9]:
+# In[12]:
 
 
 md(f"""The high-level statistics shows the following results:<br>
@@ -264,7 +317,7 @@ Those data points are invalid and need to be filtered out before proceeding with
 # * ride distane in m is <= 0 OR
 # * ride distance in m is > 200.000
 
-# In[10]:
+# In[13]:
 
 
 # MORE CLEANING ACCORDING TO CRITERIA ABOVE
@@ -273,7 +326,7 @@ df_cleaned_v2 = df_cleaned.loc[(df_cleaned['dist_ride'] > 0) &
                                (df_cleaned['dist_ride'] < 200000)]
 
 
-# In[11]:
+# In[14]:
 
 
 md(f"""Rows drecreased by **{locale.format_string('%d', df_cleaned.shape[0]-df_cleaned_v2.shape[0], grouping = True)}** 
@@ -283,7 +336,7 @@ md(f"""Rows drecreased by **{locale.format_string('%d', df_cleaned.shape[0]-df_c
 
 # ### High Level Stats - 2
 
-# In[12]:
+# In[15]:
 
 
 # RE-CALCULATE DESCRIPTIVE STAISTICS
@@ -310,7 +363,7 @@ df_max_ride_dist = df_cleaned_v2.loc[(df_cleaned_v2['dist_ride'] == df_cleaned_v
 count_rides_v2 = df_cleaned_v2['ride_id'].count()
 
 
-# In[13]:
+# In[16]:
 
 
 md(f"""The high-level statistics shows the following results:<br>
@@ -343,7 +396,7 @@ and longer than 1 min.
 
 # ### Data Cleaning - Step 2
 
-# In[14]:
+# In[17]:
 
 
 # NARROWING DOWN DATA SET TO MATCH ACTUAL DEMAND DIST > 100m and RIDE TIME > 1 MIN
@@ -351,7 +404,7 @@ df_cleaned_v3 = df_cleaned_v2.loc[(df_cleaned_v2['dist_ride'] > 100) &
                                (df_cleaned_v2['length_of_ride_tdelta']>datetime.timedelta(minutes=1))]
 
 
-# In[15]:
+# In[18]:
 
 
 md(f"""Rows drecreased by **{locale.format_string('%d', df_cleaned_v2.shape[0]-df_cleaned_v3.shape[0], grouping = True)}** 
@@ -362,7 +415,7 @@ In total Rows decreased by **{locale.format_string('%d', df.shape[0]-df_cleaned_
 """)
 
 
-# In[16]:
+# In[19]:
 
 
 # CREATE SUBCATEGORY FOR DIST TRAVLLED FROM ULTRA-SHORT TO EXTRA-LONG
@@ -378,7 +431,7 @@ df_cleaned_v3['dist_class'] = pd.Categorical(df_cleaned_v3['dist_ride'].apply(la
         categories=['Short','Short-Medium', 'Medium', 'Medium-Long', 'Long', 'Extra-Long'])
 
 
-# In[17]:
+# In[20]:
 
 
 # EpxORTING CLEANED DATA TO CSV
@@ -387,7 +440,7 @@ df_cleaned_v3.to_csv('.\..\data\cleaned_data.csv', float_format="%.2f", index=Fa
 
 # #### IMPROT DF for quick restart and PURGE OBSOLETE DATA
 
-# In[18]:
+# In[21]:
 
 
 # import df_cleaned_v3
@@ -479,7 +532,7 @@ def strfdelta(tdelta, fmt):
 
 # ### High Level Stats - 3
 
-# In[19]:
+# In[22]:
 
 
 # RE-CALCULATE DESCRIPTIVE STAISTICS
@@ -504,7 +557,7 @@ dist_time_corr_v3 = df_cleaned_v3['length_of_ride_s'].corr(df_cleaned_v3['dist_r
 count_rides_v3= df_cleaned_v3['ride_id'].count()
 
 
-# In[20]:
+# In[23]:
 
 
 md(f"""The high-level statistics shows the following results:
@@ -537,7 +590,7 @@ r = **{round(dist_time_corr_v3,5)}**
 # 
 # ### Pivot - Member-Type
 
-# In[21]:
+# In[24]:
 
 
 # GROUPING STATISTICS
@@ -568,7 +621,7 @@ df_groupby_member
 
 # ### Pivot - Rideable-Type
 
-# In[22]:
+# In[25]:
 
 
 # GROUPING STATISTICS
@@ -598,7 +651,7 @@ df_groupby_ride
 
 # ### Pivot - Month
 
-# In[23]:
+# In[26]:
 
 
 # GROUPING STATISTICS
@@ -628,7 +681,7 @@ df_groupby_month
 
 # ### Pivot - Member-Type & Month
 
-# In[24]:
+# In[27]:
 
 
 # GROUPING STATISTICS
@@ -659,7 +712,7 @@ df_groupby_member_month
 
 # ### Pivot - Member-Type & Day
 
-# In[25]:
+# In[28]:
 
 
 # GROUPING STATISTICS
@@ -688,7 +741,7 @@ df_groupby_member_day
 
 # ### Pivot - Member-Type & Ride-Type & Month
 
-# In[26]:
+# In[29]:
 
 
 # GROUPING STATISTICS
@@ -717,7 +770,7 @@ df_groupby_member_ride_month
 
 # ### Pivot - Member-Type & most used Station
 
-# In[27]:
+# In[30]:
 
 
 station_concat = pd.concat([df_cleaned_v3[['member_casual','start_station_id','start_station_name','day_of_ride','month_of_ride','rideable_type']]\
@@ -739,7 +792,7 @@ most_common_station
 
 # ### Pivot - Member-Type & Month & most used Station
 
-# In[28]:
+# In[31]:
 
 
 df_temp = station_concat.groupby(['member_casual','month_of_ride','station_id','station_name'])['station_id'].count().\
@@ -756,7 +809,7 @@ most_common_station_month
 
 # ### Pivot - Member-Type & Day & most used Station
 
-# In[29]:
+# In[32]:
 
 
 df_temp = station_concat.groupby(['member_casual','day_of_ride','station_id','station_name'])['station_id'].count().\
@@ -774,7 +827,7 @@ most_common_station_weekday
 
 # ### Pivot - Member-Type & Ride-Type & most used Station
 
-# In[30]:
+# In[33]:
 
 
 df_temp = station_concat.groupby(['member_casual','rideable_type','station_id','station_name'])['station_id'].count().\
@@ -792,7 +845,7 @@ most_common_station_ridetype
 
 # ### EXPORT PIVOTS TO EXCEL
 
-# In[31]:
+# In[34]:
 
 
 # EXPORTING CLEANED DATA TO XLSX
@@ -823,7 +876,7 @@ with pd.ExcelWriter(file_path) as writer:
     
 
 
-# In[32]:
+# In[35]:
 
 
 # STYLING PLOTS
@@ -863,7 +916,7 @@ color_dict = dict(
 # 
 # ### Distribution of rides
 
-# In[34]:
+# In[36]:
 
 
 df_member_type_distri = df_cleaned_v3.groupby(['member_casual','rideable_type'])['ride_id'].count().rename('no_of_rides').reset_index()
@@ -891,7 +944,7 @@ fig.write_image('./../pictures/sunburst_member_ridetype.png')
 fig.show()
 
 
-# In[35]:
+# In[37]:
 
 
 md(f"""
@@ -909,7 +962,7 @@ Also casual riders are the only ones who use the option of the docked bike.
 # 
 # Next we will look at a quick distribution of the distance classified into 6 categories from Short to X-Long (see annotations).
 
-# In[36]:
+# In[38]:
 
 
 df_dist_class_distri = df_cleaned_v3.groupby('dist_class')['ride_id'].count().reset_index()
@@ -955,7 +1008,7 @@ plt.show()
 
 # #### Histogram
 
-# In[37]:
+# In[39]:
 
 
 fig, ax = plt.subplots()
@@ -984,7 +1037,7 @@ plt.show()
 
 # #### Violinplot for member-type and weekday
 
-# In[38]:
+# In[40]:
 
 
 fig, ax = plt.subplots()
@@ -1030,7 +1083,7 @@ plt.show()
 
 # #### Violinplot for member-type and month
 
-# In[39]:
+# In[41]:
 
 
 fig, ax = plt.subplots()
@@ -1076,13 +1129,13 @@ plt.show()
 # 
 # Next let's look at the difference in riding behaviour for the length of the ride.
 
-# In[40]:
+# In[42]:
 
 
 #### Boxplot - Ride-length by Member-Type and Weekday
 
 
-# In[41]:
+# In[43]:
 
 
 ax = sns.boxplot(x="day_of_ride", y="length_of_ride_s", hue="member_casual",  hue_order = ['Casual','Member'],
@@ -1125,7 +1178,7 @@ plt.savefig('./../pictures/boxplot_ridelength_day.png' , transparent = True)
 plt.show()
 
 
-# In[42]:
+# In[44]:
 
 
 md(f"""
@@ -1146,7 +1199,7 @@ So far this shows a clear difference in  riding behaviour during the weekend, bu
 
 # #### Boxplot - Ride-length by Member-Type and Month
 
-# In[43]:
+# In[45]:
 
 
 ax = sns.boxplot(x="month_of_ride", y="length_of_ride_s", hue="member_casual",  hue_order = ['Casual','Member'],
@@ -1190,7 +1243,7 @@ plt.savefig('./../pictures/boxplot_ridelength_month.png', transparent = True)
 plt.show()
 
 
-# In[44]:
+# In[46]:
 
 
 md("""
@@ -1215,7 +1268,7 @@ the motto seems to be "the ride is the goal" in Winter it shifts to "the destina
 
 # #### Linear Model of rides
 
-# In[45]:
+# In[47]:
 
 
 import scipy as sp
@@ -1228,7 +1281,7 @@ def annotate(data, **kws):
             transform=ax.transAxes)
 
 
-# In[46]:
+# In[48]:
 
 
 df_implot_temp = df_cleaned_v3[['member_casual','rideable_type', 'length_of_ride_s', 'dist_ride']]
@@ -1268,7 +1321,7 @@ plt.savefig('./../pictures/lmplot_length_vs_dist.png', transparent = True)
 plt.show()
 
 
-# In[47]:
+# In[49]:
 
 
 # DF of classic bike
@@ -1309,7 +1362,7 @@ plt.savefig('./../pictures/lmplot_length_vs_dist_classic_bike.png', dpi = 300, t
 plt.show()
 
 
-# In[48]:
+# In[50]:
 
 
 # DF of electric bike
@@ -1356,11 +1409,7 @@ plt.show()
 # 
 # #### Barchart - Visited Stations
 
-# #### Map Scatterplot - Visited Stations
-# 
-# Now let's visualize the difference in used stations and plot it onto the map. The size of the marker will indicate how frequently the station is visited by each member-type.
-
-# In[49]:
+# In[51]:
 
 
 try:
@@ -1387,7 +1436,11 @@ plt.savefig('./../pictures/most_station.png')
 plt.show()
 
 
-# In[50]:
+# #### Map Scatterplot - Visited Stations
+# 
+# Now let's visualize the difference in used stations and plot it onto the map. The size of the marker will indicate how frequently the station is visited by each member-type.
+
+# In[52]:
 
 
 # Create DF for the map scatterplot
@@ -1405,7 +1458,7 @@ mean_lat_lng = df_cleaned_v3.groupby(['start_station_id','start_station_name'])\
 scatter_map_df = scatter_map_df.merge(mean_lat_lng, how = 'left', on = 'station_id').dropna(how='any')
 
 
-# In[52]:
+# In[53]:
 
 
 mapbox_acces_token = px.set_mapbox_access_token(open("../mapbox_token_public.json").read())
@@ -1454,7 +1507,7 @@ fig.show()
 # 
 # We will limit the lines plotted to visualize the routes taken therefore to the top 200 routes for each member type.
 
-# In[53]:
+# In[54]:
 
 
 # Create DF for the the different routes taken
@@ -1494,7 +1547,7 @@ scatter_map_rides_df['line_width'] = scatter_map_rides_df['line_width'].apply(la
 scatter_map_rides_df.dropna(inplace=True)
 
 
-# In[54]:
+# In[55]:
 
 
 # Create DF to plot stations - this time unified (no start + end separation or member-type separation)
